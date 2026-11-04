@@ -12,6 +12,7 @@ Last updated: 2026-11-04
 | D3 | **Lexical retrieval (BM25) plus controlled query expansion.** No embeddings and no LLM. | The golden set passes 30/30 on the installed documents. Semantic search will be reconsidered only if real Hebrew questions fail. See `LLM_FEASIBILITY.md`. |
 | D4 | **Pure JavaScript search engine.** No SQLite/WASM. | It's simpler, has no dependencies, and uses one tokenizer everywhere. On desktop the index builds in about 0.1 s for 1,665 passages and a search takes about 1 ms. |
 | D5 | **The original PDF is the authority.** Every answer is verbatim text plus a one-tap original page. | This rules out generated wording that could pass as documentation. |
+| D6 | **Optional local LLM added 2026-11-04, strictly grounded (RAG), off by default.** A small model (Llama-3.2-1B, via WebLLM/WebGPU) may rephrase the already-retrieved passages into fluent prose, but is never given anything else and is never invoked when nothing was found. The verbatim quotes (D5) are always still shown, unchanged, below it. See `docs/LLM_FEASIBILITY.md`. |
 
 ## 2. Components
 
@@ -35,7 +36,7 @@ iPad (Safari, home-screen app, offline)
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
-An optional LLM would be a separate "answer composer" that reads `search()` results. Neither the repository nor the index would change.
+An optional LLM is implemented as a separate "answer composer" (`js/llm.js`) that only reads `search()` results — it never touches the repository or the index, and the app is functionally and behaviorally identical with it untouched (verified: full regression suite passes unchanged). It downloads on demand (≈879 MB, from Hugging Face, once) rather than being bundled, and runs fully offline after that.
 
 ## 3. Processing details
 

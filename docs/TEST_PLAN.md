@@ -27,6 +27,19 @@ node tests/e2e/e2e.cjs                         # browser: import → ask → vie
 
 **Not yet tested:** the AFM, AOM and PTH files (too large to bring into the development session), scanned pages (none in the current files), and real Safari/WebKit (Chromium was used).
 
+## A2. Optional AI composer — automated (desktop, stubbed)
+
+Real on-device generation cannot be tested from this development environment: there is no route to Hugging Face (where the model weights live) and no WebGPU in the sandboxed browser used for testing. What *was* tested:
+
+| Test | Result |
+|---|---|
+| App behavior with AI untouched (default) is unaffected | Full regression suite unchanged: 30/30 golden, 1,665/1,665 validated passages, 0 external requests |
+| "Unsupported device" path (no WebGPU — same as any pre-iPadOS-26 device) | Enable button correctly disabled, clear message shown, no crash |
+| Generation UI contract (streamed text, labeling, quotes unchanged below it, clean cancel on a new question), using a stand-in composer | Pass |
+| **Composer is never invoked when search found nothing** (`notFound`/`unrecognized`) | Confirmed directly: 0 calls, 0 generated-answer boxes |
+
+**Required on the real device** (add to §B/§C once hardware is available): iPadOS version check, real download success/time, tokens/sec, Hebrew output quality, memory stability over several questions, and app behavior if the OS kills the tab for memory pressure.
+
 ## B. On-device acceptance (iPad 10th gen) — **required, pending**
 
 Record: iPadOS version ______  date ______  tester ______

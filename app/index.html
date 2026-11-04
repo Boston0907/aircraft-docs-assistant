@@ -3,8 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <!-- No external network access at all: everything is served from this origin. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <!-- Everything the app NEEDS (search, documents, viewer) is served from this origin with no
+       network access at all. The one deliberate exception: connect-src also allows Hugging Face
+       and its CDN, and raw.githubusercontent.com, solely so the OPTIONAL local-AI feature can
+       download model weights once, on explicit user action (see js/llm.js, docs/LLM_FEASIBILITY.md).
+       No PDF, question or answer is ever sent to these hosts - only model weight files are fetched
+       FROM them, over a plain GET, before the model starts being used. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob: data: https://huggingface.co https://*.hf.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co https://*.hf-mirror.com https://raw.githubusercontent.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>עוזר תיעוד מטוס</title>
   <meta name="theme-color" content="#102a43">
@@ -22,6 +27,7 @@
       <h1>עוזר תיעוד מטוס</h1>
       <p class="sub" id="sub">חיפוש בתיעוד המותקן · פועל ללא אינטרנט</p>
     </div>
+    <button class="btn ghost" id="ai-btn" aria-label="מודל שפה מקומי">✦ AI</button>
     <button class="btn ghost" id="docs-btn" aria-label="מסמכים מותקנים">📚 מסמכים</button>
   </header>
 
@@ -52,6 +58,35 @@
       <div id="doc-list"></div>
       <div id="storage" class="muted small"></div>
       <p class="muted small">המסמכים נשמרים במכשיר בלבד ואינם נשלחים לשום מקום. קובצי ה-PDF המקוריים נשמרים ללא שינוי.</p>
+    </div>
+  </section>
+
+  <!-- Local AI composer panel -->
+  <section id="ai" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ai-title">
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <h2 id="ai-title">מודל שפה מקומי (ניסיוני)</h2>
+        <button class="btn ghost" id="ai-close">סגור</button>
+      </div>
+      <p>
+        כברירת מחדל, התשובות הן ציטוטים מדויקים מהמסמכים בלבד — ללא ניסוח מחדש. אפשר להפעיל כאן
+        מודל שפה קטן שרץ <strong>במכשיר עצמו</strong> ומנסח את התשובה במשפטים שוטפים, אך
+        <strong>אך ורק מתוך הקטעים שהחיפוש כבר מצא</strong> — הוא לעולם לא משתמש בידע חיצוני, ולא
+        מופעל כשלא נמצא דבר. הציטוטים המקוריים ממשיכים להופיע תמיד מתחת לתשובה, כדי שאפשר יהיה לבדוק
+        כל משפט מול המקור.
+      </p>
+      <div id="ai-status" class="progress"></div>
+      <div class="sheet-actions">
+        <button class="btn primary" id="ai-enable-btn">הפעלה (הורדה חד-פעמית של כ-900MB, דורש אינטרנט ו-Wi-Fi מומלץ)</button>
+        <button class="btn" id="ai-disable-btn" hidden>כיבוי (התשובות יחזרו להיות ציטוטים בלבד)</button>
+        <button class="btn" id="ai-remove-btn" hidden>מחיקת המודל מהמכשיר (משחרר כ-900MB)</button>
+      </div>
+      <p class="muted small">
+        דורש iPadOS 26 ואילך (תמיכת WebGPU בספארי) ולפחות כ-1GB זיכרון פנוי. באייפד עם 4GB זיכרון
+        כולל, זו פעולה בקצה היכולת — ייתכן שהמערכת תסגור את האפליקציה מחוסר זיכרון; במקרה כזה
+        הציטוטים הרגילים ימשיכו לעבוד כרגיל. המודל אינו יודע עברית היטב — האיכות בעברית אינה מובטחת.
+        פרטים מלאים ב-<code>docs/LLM_FEASIBILITY.md</code>.
+      </p>
     </div>
   </section>
 

@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@mlc-ai/web-llm": "^0.2.87",
     "pdfjs-dist": "^4.10.38"
   },
   "type": "module"

@@ -17,7 +17,8 @@ const el = (tag, attrs = {}, ...kids) => {
   return n;
 };
 
-const S = { docs: [], index: null, labels: new Map(), scope: 'ALL', integrity: [] };
+const S = { docs: [], index: null, labels: new Map(), scope: 'ALL', integrity: [],
+  ai: { mod: null, composer: null, useInAnswers: false, currentAbort: null, supported: null, cachedOnDisk: null } };
 const AIRCRAFT_LABEL = { ALL: 'כל המסמכים', G550: 'G550', GV: 'GV' };
 
 // ---------- load ----------
@@ -88,7 +89,7 @@ function ask(q) {
   const t0 = performance.now();
   const r = S.index.search(q, { aircraft: S.scope, limit: 20 });
   r.ms = Math.round(performance.now() - t0);
-  renderAnswer(r);
+  renderAnswer(r, q);
 }
 
 function botMessage(...kids) {
@@ -107,7 +108,7 @@ const sectionText = (p) => {
 const shorten = (t, n) => (t && t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t || null);
 const pageRef = (p) => (p.lb ? `עמ' ${p.lb} · ` : '') + `עמוד ${p.p} בקובץ`;
 
-function renderAnswer(r) {
+function renderAnswer(r, question) {
   const kids = [];
   const STATUS = {
     found: ['found', '✓ נמצא בתיעוד'],
@@ -118,6 +119,15 @@ function renderAnswer(r) {
   };
   const [cls, label] = STATUS[r.status];
   kids.push(el('div', { class: 'status ' + cls }, label));
+
+  // Optional local-AI composed answer. Only ever attempted when real content was found
+  // (never on notFound/unrecognized/empty), and only ever shown the passages below it.
+  let aiPh = null;
+  if (S.ai.useInAnswers && S.ai.composer?.ready && (r.status === 'found' || r.status === 'partial') && r.results.length) {
+    aiPh = aiPlaceholder();
+    kids.push(aiPh.box);
+  }
+
   kids.push(el('div', { class: 'sys-label' }, 'סיכום המערכת (נוסח אוטומטי — אינו ציטוט):'));
   kids.push(summary(r));
   kids.push(searchedLine(r));
@@ -133,6 +143,107 @@ function renderAnswer(r) {
     kids.push(more);
   }
   botMessage(...kids);
+  if (aiPh) streamAiAnswer(aiPh, r, question);
+}
+
+// ---------- optional local AI composer ----------
+
+async function getLLM() {
+  if (!S.ai.mod) S.ai.mod = import('./llm.js');
+  return S.ai.mod;
+}
+
+function aiPlaceholder() {
+  const cursor = el('span', { class: 'cursor' });
+  const textEl = el('span', { class: 'ai-text' }, cursor);
+  const dot = el('span', { class: 'dot pulse' });
+  const box = el('div', { class: 'ai-answer' },
+    el('div', { class: 'ai-label' }, dot, 'נוסח על ידי מודל שפה מקומי (ניסיוני) — מבוסס אך ורק על הקטעים שמוצגים למטה'),
+    textEl,
+  );
+  return { box, textEl, cursor, dot };
+}
+
+async function streamAiAnswer(ph, r, question) {
+  if (S.ai.currentAbort) S.ai.currentAbort.abort();
+  const ac = new AbortController();
+  S.ai.currentAbort = ac;
+  const passages = r.results.slice(0, 3).map((x) => {
+    const p = x.passage; const d = docOf(p.d);
+    return { label: `${d.shortName} · ${pageRef(p)}`, text: (p.t || '').slice(0, 700) };
+  });
+  try {
+    await S.ai.composer.compose(question, passages, {
+      signal: ac.signal,
+      onToken: (delta) => ph.cursor.before(delta),
+    });
+    ph.dot.classList.remove('pulse');
+    ph.cursor.remove();
+    if (!ph.textEl.textContent.trim()) ph.box.remove();
+    else ph.box.append(el('div', { class: 'ai-foot' }, 'הטקסט שלמעלה נוסח אוטומטית על ידי מודל שפה. הציטוטים המדויקים מהמסמך מופיעים למטה — יש לבדוק מולם.'));
+  } catch (e) {
+    ph.dot.classList.remove('pulse');
+    ph.box.replaceChildren(el('div', { class: 'ai-label' }, '⚠ מודל השפה נתקל בשגיאה (ככל הנראה חוסר זיכרון). מוצגים רק הציטוטים המקוריים למטה.'));
+    console.warn('AI compose failed', e);
+  }
+}
+
+function openAI() { $('ai').hidden = false; refreshAiPanel(); }
+function closeAI() { $('ai').hidden = true; }
+
+async function refreshAiPanel() {
+  const status = $('ai-status');
+  status.textContent = 'בודק תמיכה במכשיר…';
+  const mod = await getLLM();
+  const probe = await mod.probeWebGPU();
+  S.ai.supported = probe.ok;
+  S.ai.cachedOnDisk = await mod.isModelCached();
+  const ready = !!S.ai.composer?.ready;
+  status.textContent = [
+    probe.ok ? '✓ WebGPU נתמך בדפדפן זה.' : `✕ WebGPU אינו זמין (${probe.reason}). נדרש iPadOS 26 ואילך.`,
+    S.ai.cachedOnDisk ? '✓ המודל כבר הורד למכשיר — הפעלה הבאה לא תדרוש הורדה חוזרת.' : `המודל (כ-${mod.MODEL_SIZE_MB}MB) טרם הורד למכשיר זה.`,
+    ready ? (S.ai.useInAnswers ? '✓ המודל טעון ופעיל כרגע — התשובות הבאות ישתמשו בו.' : 'המודל טעון בזיכרון אך כבוי.') : 'המודל אינו טעון בזיכרון בהפעלה הנוכחית של האפליקציה.',
+  ].join('\n');
+  $('ai-enable-btn').hidden = ready && S.ai.useInAnswers;
+  $('ai-enable-btn').disabled = !probe.ok;
+  $('ai-enable-btn').textContent = S.ai.cachedOnDisk
+    ? 'הפעלה (המודל כבר במכשיר — טעינה בלבד, ללא הורדה)'
+    : `הפעלה (הורדה חד-פעמית של כ-${mod.MODEL_SIZE_MB}MB, דורש אינטרנט)`;
+  $('ai-disable-btn').hidden = !(ready && S.ai.useInAnswers);
+  $('ai-remove-btn').hidden = !S.ai.cachedOnDisk;
+}
+
+async function enableAI() {
+  const mod = await getLLM();
+  const status = $('ai-status');
+  $('ai-enable-btn').disabled = true;
+  if (!S.ai.composer) S.ai.composer = new mod.Composer();
+  try {
+    await S.ai.composer.init((report) => { status.textContent = report.text || `טוען… ${Math.round((report.progress || 0) * 100)}%`; });
+    S.ai.useInAnswers = true;
+    status.textContent = '✓ המודל נטען ופעיל.';
+  } catch (e) {
+    status.textContent = '✕ טעינת המודל נכשלה: ' + (e.message || e);
+  } finally {
+    $('ai-enable-btn').disabled = false;
+    refreshAiPanel();
+  }
+}
+
+async function disableAI() {
+  S.ai.useInAnswers = false;
+  if (S.ai.composer) await S.ai.composer.unload();
+  refreshAiPanel();
+}
+
+async function removeAI() {
+  const ok = await confirmDialog('מחיקת מודל השפה', ['המודל יימחק מהמכשיר וישוחרר כ-900MB אחסון.', 'אפשר יהיה להוריד אותו שוב בכל עת.']);
+  if (!ok) return;
+  const mod = await getLLM();
+  if (S.ai.composer) await S.ai.composer.unload();
+  S.ai.useInAnswers = false;
+  await mod.clearCachedModel();
+  refreshAiPanel();
 }
 
 function summary(r) {
@@ -372,6 +483,11 @@ async function main() {
   initViewer();
   $('docs-btn').onclick = openDocs;
   $('docs-close').onclick = closeDocs;
+  $('ai-btn').onclick = openAI;
+  $('ai-close').onclick = closeAI;
+  $('ai-enable-btn').onclick = enableAI;
+  $('ai-disable-btn').onclick = disableAI;
+  $('ai-remove-btn').onclick = removeAI;
   $('file').onchange = (e) => { const fs = [...e.target.files]; e.target.value = ''; onFiles(fs); };
   $('verify-btn').onclick = verifyAll;
   $('export-btn').onclick = exportManifest;

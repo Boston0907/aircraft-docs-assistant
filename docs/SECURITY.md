@@ -2,7 +2,8 @@
 
 ## Network
 
-- **No runtime network use.** The page's Content-Security-Policy restricts every fetch, script, style, font and worker to the app's own origin (`connect-src 'self' blob: data:`). The browser itself blocks any call to an external API, analytics service or font host.
+- **No runtime network use for the core product.** The page's Content-Security-Policy restricts every fetch, script, style, font and worker to the app's own origin for search, documents and the PDF viewer. The browser itself blocks any call to an external API, analytics service or font host.
+- **One deliberate, narrow exception:** the optional local-AI feature (`docs/LLM_FEASIBILITY.md`), off by default. If and only if the user opens "✦ AI" and explicitly presses download, the CSP's `connect-src` additionally allows `huggingface.co` and its CDN, and `raw.githubusercontent.com` — solely to fetch the model's own weight files (a plain GET of public, static files). No question, answer, document or any user data is ever sent to these hosts; nothing is ever POSTed to them. Confirmed by test: with the feature untouched (the default), external requests during a full session remain zero.
 - The service worker serves all app files from the on-device cache. It only goes to the network for a file that isn't cached, which happens at first installation or during an app update, and only to the app's own origin.
 - Verified in the automated browser test: **0 external requests** during import, search, PDF viewing and offline reload.
 - No telemetry, analytics, accounts or cloud AI.
