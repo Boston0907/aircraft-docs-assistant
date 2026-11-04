@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- No external network access at all: everything is served from this origin. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>עוזר תיעוד מטוס</title>
+  <meta name="theme-color" content="#102a43">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="תיעוד מטוס">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>עוזר תיעוד מטוס</h1>
+      <p class="sub" id="sub">חיפוש בתיעוד המותקן · פועל ללא אינטרנט</p>
+    </div>
+    <button class="btn ghost" id="docs-btn" aria-label="מסמכים מותקנים">📚 מסמכים</button>
+  </header>
+
+  <nav class="scope" id="scope" hidden aria-label="סינון לפי דגם"></nav>
+
+  <main id="chat" class="chat" aria-live="polite"></main>
+
+  <form class="composer" id="composer" autocomplete="off">
+    <textarea id="q" rows="1" placeholder="שאל שאלה על תיעוד המטוס…" aria-label="שאלה" enterkeyhint="send"></textarea>
+    <button class="btn primary" id="send" type="submit" aria-label="שלח">שלח</button>
+  </form>
+
+  <!-- Installed documents panel -->
+  <section id="docs" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="docs-title">
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <h2 id="docs-title">מסמכים מותקנים</h2>
+        <button class="btn ghost" id="docs-close">סגור</button>
+      </div>
+      <div class="sheet-actions">
+        <label class="btn primary file-btn">הוספה / עדכון מסמכים (PDF)
+          <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+        </label>
+        <button class="btn" id="verify-btn">בדיקת תקינות</button>
+        <button class="btn" id="export-btn">ייצוא רשימת מסמכים</button>
+      </div>
+      <div id="import-progress" class="progress" hidden></div>
+      <div id="doc-list"></div>
+      <div id="storage" class="muted small"></div>
+      <p class="muted small">המסמכים נשמרים במכשיר בלבד ואינם נשלחים לשום מקום. קובצי ה-PDF המקוריים נשמרים ללא שינוי.</p>
+    </div>
+  </section>
+
+  <!-- Confirmation dialog -->
+  <section id="confirm" class="sheet" hidden role="alertdialog" aria-modal="true">
+    <div class="sheet-inner narrow">
+      <h2 id="confirm-title"></h2>
+      <div id="confirm-body"></div>
+      <div class="sheet-actions">
+        <button class="btn primary" id="confirm-yes">אישור</button>
+        <button class="btn" id="confirm-no">ביטול</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Original page viewer -->
+  <section id="viewer" class="viewer" hidden role="dialog" aria-modal="true" aria-labelledby="viewer-title">
+    <div class="viewer-bar">
+      <button class="btn ghost" id="viewer-close">✕ סגור</button>
+      <div class="viewer-meta">
+        <strong id="viewer-title"></strong>
+        <span id="viewer-status" class="muted"></span>
+      </div>
+      <div class="viewer-nav">
+        <button class="btn" id="viewer-prev" aria-label="עמוד קודם">→ הקודם</button>
+        <button class="btn" id="viewer-next" aria-label="עמוד הבא">הבא ←</button>
+        <button class="btn" id="viewer-zoom-out" aria-label="הקטן">−</button>
+        <button class="btn" id="viewer-zoom-in" aria-label="הגדל">+</button>
+      </div>
+    </div>
+    <div class="viewer-note">זהו העמוד המקורי מהמסמך. האזור המסומן בצד הוא הקטע שצוטט; מילות החיפוש מודגשות בצהוב.</div>
+    <div id="viewer-scroll" class="viewer-scroll"><div id="viewer-canvas-wrap" dir="ltr"></div></div>
+  </section>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

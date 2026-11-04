@@ -1,0 +1,6 @@
+# Never commit aircraft documents or anything derived from them.
+sources/
+tests/out/
+*.pdf
+*.PDF
+node_modules/
